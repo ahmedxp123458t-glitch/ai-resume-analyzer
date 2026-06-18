@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Analyzer & ATS Checker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        header {
+            text-align: center; padding: 30px 0; border-bottom: 1px solid #21262d;
+            margin-bottom: 30px;
+        }
+        header h1 {
+            font-size: 2rem; background: linear-gradient(135deg, #58a6ff, #bc8cff);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        header p { color: #8b949e; margin-top: 8px; font-size: 0.95rem; }
+        .badge {
+            display: inline-block; padding: 4px 12px; border-radius: 12px;
+            font-size: 0.75rem; font-weight: 600; margin-top: 10px;
+        }
+        .badge.online { background: #1a3a2a; color: #3fb950; border: 1px solid #3fb950; }
+        .badge.offline { background: #3d1f1f; color: #f85149; border: 1px solid #f85149; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        .card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+            padding: 20px; margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.1rem; margin-bottom: 16px; color: #f0f6fc;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .card h2 .icon { font-size: 1.2rem; }
+        label { display: block; font-size: 0.85rem; color: #8b949e; margin-bottom: 6px; }
+        input[type="file"], textarea, select {
+            width: 100%; padding: 10px; background: #0d1117; border: 1px solid #30363d;
+            border-radius: 6px; color: #c9d1d9; font-size: 0.9rem; margin-bottom: 12px;
+        }
+        input[type="file"]::file-selector-button {
+            padding: 6px 14px; background: #21262d; border: 1px solid #30363d;
+            border-radius: 4px; color: #c9d1d9; cursor: pointer; margin-right: 10px;
+        }
+        textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+        input:focus, textarea:focus { outline: none; border-color: #58a6ff; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 10px 20px; border: none; border-radius: 6px; font-size: 0.9rem;
+            font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-primary { background: #238636; color: #fff; }
+        .btn-primary:hover { background: #2ea043; }
+        .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .btn-secondary:hover { background: #30363d; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-group { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+
+        .score-container { text-align: center; padding: 20px; }
+        .score-circle {
+            width: 140px; height: 140px; border-radius: 50%; display: inline-flex;
+            align-items: center; justify-content: center;
+            font-size: 2.4rem; font-weight: 700; border: 4px solid;
+            margin-bottom: 10px;
+        }
+        .score-label { color: #8b949e; font-size: 0.85rem; }
+        .progress-bar {
+            width: 100%; height: 8px; background: #21262d; border-radius: 4px;
+            overflow: hidden; margin: 6px 0;
+        }
+        .progress-fill {
+            height: 100%; border-radius: 4px; transition: width 1s ease;
+        }
+        .progress-fill.green { background: #3fb950; }
+        .progress-fill.yellow { background: #d29922; }
+        .progress-fill.orange { background: #db6d28; }
+        .progress-fill.red { background: #f85149; }
+        .metric-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 6px 0; font-size: 0.85rem;
+        }
+        .metric-row .label { color: #8b949e; }
+        .metric-row .value { font-weight: 600; }
+        .skill-tag {
+            display: inline-block; padding: 3px 10px; border-radius: 12px;
+            font-size: 0.78rem; margin: 3px 4px 3px 0;
+        }
+        .skill-tag.match { background: #1a3a2a; color: #3fb950; border: 1px solid #3fb950; }
+        .skill-tag.missing { background: #3d1f1f; color: #f85149; border: 1px solid #f85149; }
+        .skill-tag.extra { background: #1f2a3d; color: #58a6ff; border: 1px solid #58a6ff; }
+        .suggestion-item {
+            padding: 10px; border-left: 3px solid #58a6ff; margin: 8px 0;
+            background: #0d1117; border-radius: 0 6px 6px 0; font-size: 0.88rem;
+        }
+        .summary-text {
+            line-height: 1.6; color: #c9d1d9; padding: 10px;
+            background: #0d1117; border-radius: 6px; font-size: 0.9rem;
+        }
+        .hidden { display: none; }
+        .tab-bar { display: flex; border-bottom: 1px solid #30363d; margin-bottom: 16px; }
+        .tab {
+            padding: 8px 18px; cursor: pointer; color: #8b949e; font-size: 0.85rem;
+            border-bottom: 2px solid transparent; transition: all 0.2s;
+        }
+        .tab:hover { color: #c9d1d9; }
+        .tab.active { color: #f0f6fc; border-bottom-color: #58a6ff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .loading {
+            text-align: center; padding: 30px; color: #8b949e;
+        }
+        .spinner {
+            width: 30px; height: 30px; border: 3px solid #30363d;
+            border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.8s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .error-msg {
+            background: #3d1f1f; border: 1px solid #f85149; color: #f85149;
+            padding: 12px; border-radius: 6px; margin: 10px 0;
+        }
+        .resume-list {
+            max-height: 200px; overflow-y: auto;
+        }
+        .resume-item {
+            padding: 8px 12px; background: #0d1117; border-radius: 4px;
+            margin: 4px 0; cursor: pointer; font-size: 0.85rem;
+            border: 1px solid transparent; transition: all 0.2s;
+        }
+        .resume-item:hover { border-color: #30363d; }
+        .resume-item.selected { border-color: #58a6ff; background: #1f2a3d; }
+        #comparison-result .cmp-match { text-align: center; padding: 20px; }
+        #comparison-result .cmp-match .big-num {
+            font-size: 3rem; font-weight: 700;
+        }
+        .requirement-row {
+            display: flex; justify-content: space-between; padding: 4px 0;
+            font-size: 0.82rem; border-bottom: 1px solid #21262d;
+        }
+        .requirement-row .status { font-weight: 600; }
+        .status.met { color: #3fb950; }
+        .status.unmet { color: #f85149; }
+        footer {
+            text-align: center; padding: 30px 0; color: #484f58;
+            border-top: 1px solid #21262d; margin-top: 30px; font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>AI Resume Analyzer &amp; ATS Checker</h1>
+        <p>Upload your resume, compare with job descriptions, and get AI-powered improvement suggestions</p>
+        <span class="badge {{ 'online' if ai_status == 'available' else 'offline' }}">
+            AI: {{ ai_status }}
+        </span>
+    </header>
+
+    <div class="grid">
+        <div>
+            <div class="card" id="upload-card">
+                <h2><span class="icon">&#128196;</span> Upload Resume</h2>
+                <label for="resume-file">Choose PDF Resume</label>
+                <input type="file" id="resume-file" accept=".pdf">
+                <div id="upload-status"></div>
+                <button class="btn btn-primary" id="btn-upload" onclick="uploadResume()">Upload &amp; Analyze</button>
+            </div>
+
+            <div class="card" id="jd-card">
+                <h2><span class="icon">&#128221;</span> Job Description (Optional)</h2>
+                <label for="jd-text">Paste job description to compare against</label>
+                <textarea id="jd-text" placeholder="Paste job description here..."></textarea>
+            </div>
+
+            <div class="card" id="resumes-card">
+                <h2><span class="icon">&#128203;</span> Your Resumes</h2>
+                <div class="resume-list" id="resume-list"></div>
+                <div style="margin-top: 10px;">
+                    <label for="resume-select">Or select existing resume</label>
+                    <select id="resume-select" onchange="selectResume(this.value)">
+                        <option value="">-- Select a resume --</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="card" id="score-card">
+                <h2><span class="icon">&#128200;</span> ATS Score</h2>
+                <div id="score-content">
+                    <div class="score-container" id="score-display">
+                        <div class="score-circle" id="score-circle">--</div>
+                        <div class="score-label">Overall ATS Score</div>
+                    </div>
+                    <div id="score-details"></div>
+                </div>
+                <div id="score-loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <div>Analyzing resume...</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2><span class="icon">&#128269;</span> Results</h2>
+                <div class="tab-bar">
+                    <div class="tab active" onclick="switchTab('suggestions', this)">Suggestions</div>
+                    <div class="tab" onclick="switchTab('summary', this)">Summary</div>
+                    <div class="tab" onclick="switchTab('comparison', this)">Comparison</div>
+                </div>
+                <div id="tab-suggestions" class="tab-content active"></div>
+                <div id="tab-summary" class="tab-content"></div>
+                <div id="tab-comparison" class="tab-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="detailed-comparison" class="card hidden">
+        <h2><span class="icon">&#128194;</span> Detailed Comparison</h2>
+        <div id="comparison-results"></div>
+    </div>
+
+    <footer>
+        AI Resume Analyzer &amp; ATS Checker &mdash; Built with FastAPI &amp; Python
+    </footer>
+</div>
+
+<script>
+    let currentResumeId = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadResumeList();
+    });
+
+    function loadResumeList() {
+        fetch('/api/resumes')
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('resume-list');
+                const select = document.getElementById('resume-select');
+                list.innerHTML = '';
+                select.innerHTML = '<option value="">-- Select a resume --</option>';
+
+                data.forEach(r => {
+                    const div = document.createElement('div');
+                    div.className = 'resume-item';
+                    div.textContent = r.filename + ' (' + new Date(r.created_at).toLocaleDateString() + ')';
+                    div.onclick = function() { selectResumeById(r.id); };
+                    list.appendChild(div);
+
+                    const opt = document.createElement('option');
+                    opt.value = r.id;
+                    opt.textContent = r.filename;
+                    select.appendChild(opt);
+                });
+            })
+            .catch(() => {});
+    }
+
+    function selectResume(value) {
+        if (value) selectResumeById(parseInt(value));
+    }
+
+    function selectResumeById(id) {
+        currentResumeId = id;
+        document.querySelectorAll('.resume-item').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('.resume-item').forEach(el => {
+            if (el.textContent.includes(getResumeName(id))) el.classList.add('selected');
+        });
+        document.getElementById('resume-select').value = id;
+        analyzeCurrentResume();
+    }
+
+    function getResumeName(id) {
+        const opt = document.querySelector('#resume-select option[value="' + id + '"]');
+        return opt ? opt.textContent : '';
+    }
+
+    async function uploadResume() {
+        const fileInput = document.getElementById('resume-file');
+        const statusDiv = document.getElementById('upload-status');
+        const btn = document.getElementById('btn-upload');
+
+        if (!fileInput.files.length) {
+            statusDiv.innerHTML = '<div class="error-msg">Please select a PDF file</div>';
+            return;
+        }
+
+        btn.disabled = true;
+        statusDiv.innerHTML = '<div class="loading"><div class="spinner"></div><div>Uploading...</div></div>';
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        try {
+            const resp = await fetch('/api/resume/upload', { method: 'POST', body: formData });
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                statusDiv.innerHTML = '<div class="error-msg">' + (data.detail || 'Upload failed') + '</div>';
+                btn.disabled = false;
+                return;
+            }
+
+            statusDiv.innerHTML = '<div style="color:#3fb950;padding:8px;">Uploaded successfully! ID: ' + data.id + '</div>';
+            currentResumeId = data.id;
+            loadResumeList();
+            analyzeCurrentResume();
+        } catch (e) {
+            statusDiv.innerHTML = '<div class="error-msg">Network error: ' + e.message + '</div>';
+        }
+        btn.disabled = false;
+    }
+
+    async function analyzeCurrentResume() {
+        if (!currentResumeId) return;
+
+        document.getElementById('score-loading').classList.remove('hidden');
+        document.getElementById('score-content').style.display = 'none';
+        document.getElementById('tab-suggestions').innerHTML = '';
+        document.getElementById('tab-summary').innerHTML = '';
+        document.getElementById('tab-comparison').innerHTML = '';
+        document.getElementById('detailed-comparison').classList.add('hidden');
+
+        const jd = document.getElementById('jd-text').value;
+
+        try {
+            const resp = await fetch('/api/resume/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ resume_id: currentResumeId, job_description: jd || null }),
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                document.getElementById('score-loading').innerHTML = '<div class="error-msg">' + (data.detail || 'Analysis failed') + '</div>';
+                return;
+            }
+
+            renderScore(data.ats_score);
+            renderSuggestions(data.improvement_suggestions || []);
+            renderSummary(data.resume_summary || '');
+            if (data.comparison_results) {
+                renderComparison(data.comparison_results);
+                document.getElementById('detailed-comparison').classList.remove('hidden');
+            }
+            if (data.missing_skills && data.missing_skills.length) {
+                renderMissingSkills(data.missing_skills);
+            }
+        } catch (e) {
+            document.getElementById('score-loading').innerHTML = '<div class="error-msg">Error: ' + e.message + '</div>';
+        }
+    }
+
+    function renderScore(score) {
+        document.getElementById('score-loading').classList.add('hidden');
+        document.getElementById('score-content').style.display = 'block';
+
+        const circle = document.getElementById('score-circle');
+        const overall = score.overall_score || 0;
+        circle.textContent = Math.round(overall);
+
+        let color = '#f85149';
+        if (overall >= 80) color = '#3fb950';
+        else if (overall >= 60) color = '#d29922';
+        else if (overall >= 40) color = '#db6d28';
+
+        circle.style.borderColor = color;
+        circle.style.color = color;
+
+        const details = document.getElementById('score-details');
+        const metrics = [
+            { label: 'Keyword Match', value: score.keyword_score },
+            { label: 'Formatting', value: score.formatting_score },
+            { label: 'Education', value: score.education_score },
+            { label: 'Experience', value: score.experience_score },
+            { label: 'Skills', value: score.skills_score },
+        ];
+
+        let html = '';
+        metrics.forEach(m => {
+            const barColor = m.value >= 80 ? 'green' : m.value >= 60 ? 'yellow' : m.value >= 40 ? 'orange' : 'red';
+            html += '<div class="metric-row"><span class="label">' + m.label + '</span><span class="value">' + Math.round(m.value) + '%</span></div>';
+            html += '<div class="progress-bar"><div class="progress-fill ' + barColor + '" style="width:' + m.value + '%"></div></div>';
+        });
+
+        if (score.missing_critical_skills && score.missing_critical_skills.length) {
+            html += '<div style="margin-top:12px;"><strong style="color:#f85149;font-size:0.85rem;">Missing Skills:</strong><div>';
+            score.missing_critical_skills.forEach(s => {
+                html += '<span class="skill-tag missing">' + s + '</span>';
+            });
+            html += '</div></div>';
+        }
+
+        details.innerHTML = html;
+    }
+
+    function renderSuggestions(suggestions) {
+        const container = document.getElementById('tab-suggestions');
+        if (!suggestions.length) {
+            container.innerHTML = '<div style="color:#8b949e;padding:10px;">No suggestions available.</div>';
+            return;
+        }
+        let html = '';
+        suggestions.forEach(s => {
+            html += '<div class="suggestion-item">' + s + '</div>';
+        });
+        container.innerHTML = html;
+    }
+
+    function renderSummary(summary) {
+        const container = document.getElementById('tab-summary');
+        if (!summary) {
+            container.innerHTML = '<div style="color:#8b949e;padding:10px;">No summary available.</div>';
+            return;
+        }
+        container.innerHTML = '<div class="summary-text">' + summary + '</div>';
+    }
+
+    function renderComparison(comp) {
+        const container = document.getElementById('tab-comparison');
+        let html = '<div class="cmp-match">';
+        html += '<div class="big-num" style="color:' + (comp.match_percentage >= 70 ? '#3fb950' : comp.match_percentage >= 40 ? '#d29922' : '#f85149') + '">' + Math.round(comp.match_percentage) + '%</div>';
+        html += '<div class="score-label">Job Match</div></div>';
+
+        if (comp.matching_skills && comp.matching_skills.length) {
+            html += '<div style="margin:10px 0;"><strong style="color:#3fb950;font-size:0.85rem;">Matching Skills:</strong><div>';
+            comp.matching_skills.forEach(s => {
+                html += '<span class="skill-tag match">' + s + '</span>';
+            });
+            html += '</div></div>';
+        }
+
+        if (comp.missing_skills && comp.missing_skills.length) {
+            html += '<div style="margin:10px 0;"><strong style="color:#f85149;font-size:0.85rem;">Missing Skills:</strong><div>';
+            comp.missing_skills.forEach(s => {
+                html += '<span class="skill-tag missing">' + s + '</span>';
+            });
+            html += '</div></div>';
+        }
+
+        if (comp.extra_skills && comp.extra_skills.length) {
+            html += '<div style="margin:10px 0;"><strong style="color:#58a6ff;font-size:0.85rem;">Extra Skills:</strong><div>';
+            comp.extra_skills.forEach(s => {
+                html += '<span class="skill-tag extra">' + s + '</span>';
+            });
+            html += '</div></div>';
+        }
+
+        if (comp.job_requirements_met) {
+            html += '<div style="margin-top:12px;"><strong style="font-size:0.85rem;">Requirements Check:</strong></div>';
+            for (const [req, met] of Object.entries(comp.job_requirements_met)) {
+                html += '<div class="requirement-row"><span>' + req + '</span><span class="status ' + (met ? 'met' : 'unmet') + '">' + (met ? '✓' : '✗') + '</span></div>';
+            }
+        }
+
+        container.innerHTML = html;
+
+        // Also update detailed comparison
+        const detailContainer = document.getElementById('comparison-results');
+        detailContainer.innerHTML = container.innerHTML;
+    }
+
+    function renderMissingSkills(skills) {
+        const suggestionsTab = document.getElementById('tab-suggestions');
+        if (suggestionsTab) {
+            let html = suggestionsTab.innerHTML;
+            if (skills.length) {
+                html += '<div style="margin-top:16px;"><strong style="color:#f85149;font-size:0.85rem;">Skills to Add:</strong><div>';
+                skills.forEach(s => {
+                    html += '<span class="skill-tag missing">' + s + '</span>';
+                });
+                html += '</div></div>';
+            }
+            suggestionsTab.innerHTML = html;
+        }
+    }
+
+    function switchTab(tabName, el) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        document.getElementById('tab-' + tabName).classList.add('active');
+    }
+
+    document.getElementById('jd-text').addEventListener('input', function() {
+        if (currentResumeId) {
+            clearTimeout(window._jdTimer);
+            window._jdTimer = setTimeout(analyzeCurrentResume, 800);
+        }
+    });
+</script>
+</body>
+</html>
