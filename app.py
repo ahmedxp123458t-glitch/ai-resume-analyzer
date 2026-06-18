@@ -49,6 +49,17 @@ def json_serialize(obj):
     return str(obj)
 
 
+
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
+    ai_status = "available" if is_ai_available() else "unavailable"
+    resumes = get_all_resumes()
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "ai_status": ai_status, "resumes": resumes},
+    )
+
+
 @app.post("/api/resume/upload", response_model=dict)
 async def upload_resume(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".pdf"):
