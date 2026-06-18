@@ -29,9 +29,12 @@ from services.ai_service import analyze_with_ai, is_ai_available, generate_impro
 from services.comparison_service import compare as compare_resume_jd
 
 app = FastAPI(title="AI Resume Analyzer & ATS Checker")
+
+
+@app.on_event("startup")
 async def startup():
-    import os
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    init_db()
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -44,18 +47,6 @@ def json_serialize(obj):
     if isinstance(obj, set):
         return list(obj)
     return str(obj)
-
-
-@app.on_event("startup")
-def startup():
-    @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    ai_status = "available" if is_ai_available() else "unavailable"
-    resumes = get_all_resumes()
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "ai_status": ai_status, "resumes": resumes},
-    )
 
 
 @app.post("/api/resume/upload", response_model=dict)
