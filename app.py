@@ -29,11 +29,9 @@ from services.ai_service import analyze_with_ai, is_ai_available, generate_impro
 from services.comparison_service import compare as compare_resume_jd
 
 app = FastAPI(title="AI Resume Analyzer & ATS Checker")
-@app.on_event("startup")
 async def startup():
     import os
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
-    init_db()
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -41,7 +39,6 @@ UPLOADS_DIR = Path(os.path.sep) / "tmp" / "uploads"
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-UPLOADS_DIR.mkdir(exist_ok=True)
 
 def json_serialize(obj):
     if isinstance(obj, set):
